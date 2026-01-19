@@ -9,6 +9,11 @@ if [ $? -eq 0 ]; then
     echo ""
     echo "Running simulation..."
     vvp adder_sim
+
+    if [ -f adder.vcd ]; then
+        echo ""
+        echo "VCD generated: adder.vcd"
+    fi
 else
     echo "Compilation failed!"
     exit 1

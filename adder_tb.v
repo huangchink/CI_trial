@@ -13,6 +13,11 @@ module adder_tb();
     );
 
     initial begin
+        $dumpfile("adder.vcd");
+        $dumpvars(0, adder_tb);
+    end
+
+    initial begin
         // Test cases
         $display("Starting Adder Testbench");
         $display("Time | A | B | Sum | Expected");

@@ -26,7 +26,7 @@ jobs:
     - name: Generate VCD file
       run: |
         iverilog -g2009 -o adder_sim_vcd adder.v adder_tb.v
-        vvp adder_sim_vcd -vcd adder.vcd
+        vvp adder_sim_vcd
     
     - name: Upload VCD artifact
       if: always()
