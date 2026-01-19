@@ -1,98 +1,64 @@
-// Testbench for simple I2C master
-`timescale 1ns / 1ps
+`timescale 1ns / 10ps
 
 module i2c_tb();
-    reg        start;
-    reg  [6:0] addr;
-    reg  [7:0] data;
-    wire       scl;
-    tri        sda;
-    wire       busy;
-    wire       done;
-    wire       ack_error;
 
-    // Pull-up to model idle-high bus
-    pullup(sda);
+localparam durTime = 5*1000;
+reg sysClk, rst_n, tick_tx, sda_i;
+reg [7:0]addr_i, data_i;
+wire [15:0]data_o;
+wire SCL;
+wire SDA;
+integer i;
+assign SDA = (sda_i==1'b1)?1'bz:1'b0;
+pullup(SDA);
 
-    // Simple slave ACK generator (ack the first two bytes)
-    reg sda_slave_drive;
-    assign sda = sda_slave_drive ? 1'b0 : 1'bz;
+usage_I2C_write_R_W UUT(
+  .en(tick_tx),
+  .clk_sys(sysClk),
+  .rst_n(rst_n),
+  .addr(addr_i),
+  .data_i(data_i),
+  .SCLK(SCL),
+  .SDA(SDA),
+  .data_o(data_o)
+);
 
-    i2c_master dut (
-        .start(start),
-        .addr(addr),
-        .data(data),
-        .busy(busy),
-        .done(done),
-        .ack_error(ack_error),
-        .scl(scl),
-        .sda(sda)
-    );
+always@(negedge SCL, negedge rst_n)begin
+  if(!rst_n)sda_i <= 1'b1;
+  else if(i==8||i==17||i==27||i==28||i==36||i==35||i==43)#2000 sda_i <= 1'b0;//<27 for write
+  else#2000 sda_i <= 1'b1;
+end
 
-    reg [3:0] bit_count;
-    reg [1:0] byte_count;
+always@(posedge SCL, negedge rst_n)begin
+  if(!rst_n)i <= 0;
+  else i <= i + 1;
+end
 
-    initial begin
-        bit_count = 4'd0;
-        byte_count = 2'd0;
-        sda_slave_drive = 1'b0;
-    end
+always #10 sysClk = ~sysClk;
 
-    // Count 9 SCL edges per byte (8 data + 1 ACK)
-    always @(posedge scl or negedge busy) begin
-        if (!busy) begin
-            bit_count <= 4'd0;
-            byte_count <= 2'd0;
-        end else begin
-            if (bit_count == 4'd8) begin
-                bit_count <= 4'd0;
-                byte_count <= byte_count + 1'b1;
-            end else begin
-                bit_count <= bit_count + 1'b1;
-            end
-        end
-    end
+initial begin
+  sysClk  = 0;
+  rst_n   = 1;
+  tick_tx = 0;
+  sda_i   = 1'b1;
+  addr_i  = 8'hA6;
+  data_i  = 8'h81;
+  #50 rst_n   = 0;
+  #50 rst_n   = 1;
 
-    // Drive ACK during the 9th clock (SCL low-to-high transition)
-    always @(negedge scl or negedge busy) begin
-        if (!busy) begin
-            sda_slave_drive <= 1'b0;
-        end else begin
-            if ((bit_count == 4'd8) && (byte_count < 2'd2)) begin
-                sda_slave_drive <= 1'b1;
-            end else begin
-                sda_slave_drive <= 1'b0;
-            end
-        end
-    end
+  #10 tick_tx = 1;
+  #10 tick_tx = 0;
 
-    initial begin
-        $dumpfile("i2c.vcd");
-        $dumpvars(0, i2c_tb);
-    end
+  repeat(50) #durTime;
 
-    initial begin
-        start = 1'b0;
-        addr = 7'h42;
-        data = 8'hA5;
+  addr_i  = 8'hA7;
+  #10 tick_tx = 1;
+  #10 tick_tx = 0;
 
-        #100;
-        $display("Starting I2C write");
-        start = 1'b1;
-        #20;
-        start = 1'b0;
+  repeat(100) #durTime;
 
-        wait (done == 1'b1);
-        #20;
+  $finish;
 
-        if (ack_error) begin
-            $display("I2C ACK error");
-            $fatal;
-        end else begin
-            $display("I2C transaction complete");
-        end
+end
 
-        #100;
-        $finish;
-    end
 endmodule
