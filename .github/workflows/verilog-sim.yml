@@ -1,0 +1,36 @@
+name: Verilog Simulation CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  simulate:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Install Icarus Verilog
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y iverilog gtkwave
+    
+    - name: Run Pre-simulation
+      run: |
+        iverilog -o adder_sim adder.v adder_tb.v
+        vvp adder_sim
+    
+    - name: Generate VCD file
+      run: |
+        iverilog -g2009 -o adder_sim_vcd adder.v adder_tb.v
+        vvp adder_sim_vcd -vcd adder.vcd
+    
+    - name: Upload VCD artifact
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: simulation-vcd
+        path: adder.vcd
