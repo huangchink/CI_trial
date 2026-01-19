@@ -30,33 +30,39 @@ module i2c_tb();
     );
 
     reg [3:0] bit_count;
-    reg       in_ack;
     reg [1:0] byte_count;
 
-    always @(posedge scl) begin
+    initial begin
+        bit_count = 4'd0;
+        byte_count = 2'd0;
+        sda_slave_drive = 1'b0;
+    end
+
+    // Count 9 SCL edges per byte (8 data + 1 ACK)
+    always @(posedge scl or negedge busy) begin
         if (!busy) begin
             bit_count <= 4'd0;
-            in_ack <= 1'b0;
             byte_count <= 2'd0;
         end else begin
-            if (in_ack) begin
-                in_ack <= 1'b0;
+            if (bit_count == 4'd8) begin
                 bit_count <= 4'd0;
                 byte_count <= byte_count + 1'b1;
             end else begin
                 bit_count <= bit_count + 1'b1;
-                if (bit_count == 4'd7) begin
-                    in_ack <= 1'b1;
-                end
             end
         end
     end
 
-    always @(*) begin
-        if (busy && in_ack && (byte_count < 2'd2)) begin
-            sda_slave_drive = 1'b1;
+    // Drive ACK during the 9th clock (SCL low-to-high transition)
+    always @(negedge scl or negedge busy) begin
+        if (!busy) begin
+            sda_slave_drive <= 1'b0;
         end else begin
-            sda_slave_drive = 1'b0;
+            if ((bit_count == 4'd8) && (byte_count < 2'd2)) begin
+                sda_slave_drive <= 1'b1;
+            end else begin
+                sda_slave_drive <= 1'b0;
+            end
         end
     end
 
